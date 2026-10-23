@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Resume Analyzer</title>
+<meta name="description" content="Upload your resume and get an instant, explainable rating out of 100, matching job roles and skills to build next.">
+<style>
+:root{
+  --bg:#0b1020;--bg2:#121a33;--card:rgba(255,255,255,.06);--card-solid:#151d38;--border:rgba(255,255,255,.12);
+  --text:#eef1ff;--muted:#9aa6cf;--accent:#7c5cff;--accent2:#22d3ee;--good:#2ecc83;--warn:#f4b942;--bad:#ef5b5b;
+  --track:rgba(255,255,255,.1);--shadow:0 20px 60px rgba(0,0,0,.35);--chip:rgba(255,255,255,.08);
+}
+[data-theme=light]{
+  --bg:#f4f6fd;--bg2:#e9eefb;--card:rgba(255,255,255,.85);--card-solid:#ffffff;--border:#dde3f4;
+  --text:#14213d;--muted:#5b678a;--track:#e3e8f6;--shadow:0 20px 50px rgba(40,60,120,.12);--chip:#eef1fb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  line-height:1.55;overflow-x:hidden;transition:background .4s,color .4s}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;color:inherit}
+
+/* ---------- animated background ---------- */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(1200px 600px at 20% -10%,var(--bg2),transparent),var(--bg)}
+.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.45;animation:float 18s ease-in-out infinite}
+.blob.b1{width:420px;height:420px;background:var(--accent);top:-80px;left:-80px}
+.blob.b2{width:360px;height:360px;background:var(--accent2);top:40%;right:-100px;animation-delay:-6s}
+.blob.b3{width:300px;height:300px;background:#ff5fa2;bottom:-100px;left:30%;animation-delay:-12s;opacity:.3}
+[data-theme=light] .blob{opacity:.25}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,40px) scale(1.1)}66%{transform:translate(-40px,70px) scale(.95)}}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 6vw;backdrop-filter:blur(14px);background:color-mix(in srgb,var(--bg) 70%,transparent);border-bottom:1px solid var(--border)}
+.logo{font-weight:800;font-size:19px;display:flex;align-items:center;gap:10px}
+.logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-style:normal;color:#fff;font-size:16px}
+.links{display:flex;align-items:center;gap:26px;color:var(--muted);font-size:15px}
+.links a:hover{color:var(--text)}
+.toggle{background:var(--chip);border:1px solid var(--border);width:40px;height:40px;border-radius:12px;font-size:18px;transition:transform .3s}
+.toggle:hover{transform:rotate(20deg) scale(1.08)}
+
+/* ---------- layout ---------- */
+section{padding:90px 6vw;max-width:1200px;margin:0 auto}
+h1{font-size:clamp(36px,6vw,66px);line-height:1.08;font-weight:800;letter-spacing:-1.5px}
+h2{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-.8px;margin-bottom:10px}
+.grad{background:linear-gradient(90deg,var(--accent),var(--accent2),#ff5fa2,var(--accent));background-size:300% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 8s linear infinite}
+@keyframes shine{to{background-position:300% 0}}
+.sub{color:var(--muted);font-size:18px;max-width:560px;margin-top:18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px 24px;box-shadow:var(--shadow);backdrop-filter:blur(10px)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 26px;border-radius:14px;font-weight:700;font-size:16px;
+  transition:transform .2s,box-shadow .2s,opacity .2s}
+.btn.primary{background:linear-gradient(135deg,var(--accent),#5a8bff);color:#fff;box-shadow:0 10px 30px rgba(124,92,255,.45)}
+.btn.primary:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(124,92,255,.6)}
+.btn.ghost{background:var(--chip);border:1px solid var(--border)}
+.btn.ghost:hover{transform:translateY(-3px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;min-height:82vh}
+.badge{display:inline-block;padding:6px 14px;border-radius:99px;background:var(--chip);border:1px solid var(--border);font-size:13px;color:var(--muted);margin-bottom:20px}
+.cta{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+.reveal-word{display:inline-block;opacity:0;transform:translateY(24px);animation:up .7s forwards}
+@keyframes up{to{opacity:1;transform:none}}
+.mock{position:relative;animation:bob 6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-14px)}}
+.mock .tag{position:absolute;padding:8px 14px;border-radius:12px;background:var(--card-solid);border:1px solid var(--border);
+  box-shadow:var(--shadow);font-size:13px;font-weight:600;animation:bob 5s ease-in-out infinite}
+.mock .t1{top:-14px;right:-6px;animation-delay:-1s}
+.mock .t2{bottom:30px;left:-24px;animation-delay:-3s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
+.stat{text-align:center}
+.stat b{font-size:34px;display:block;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat span{color:var(--muted);font-size:14px}
+
+/* ---------- how it works ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:34px}
+.step{transition:transform .3s,border-color .3s}
+.step:hover{transform:translateY(-8px);border-color:var(--accent)}
+.step .n{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));margin-bottom:14px}
+.step p{color:var(--muted);margin-top:6px}
+
+/* scroll reveal */
+.rv{opacity:0;transform:translateY(36px);transition:opacity .8s,transform .8s}
+.rv.in{opacity:1;transform:none}
+
+/* ---------- upload ---------- */
+.drop{border:2px dashed var(--border);border-radius:22px;padding:46px 20px;text-align:center;cursor:pointer;
+  transition:all .3s;background:var(--card);position:relative;overflow:hidden}
+.drop:hover,.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card));transform:scale(1.01)}
+.drop.over::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent,rgba(124,92,255,.25),transparent);animation:sweep 1.2s infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.drop .ico{font-size:46px;display:block;animation:bob 3s ease-in-out infinite}
+.drop small{color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.file{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:var(--chip);border:1px solid var(--border);
+  animation:pop .35s both;font-size:14px}
+.file button{background:none;color:var(--muted);font-size:16px}
+.file button:hover{color:var(--bad)}
+@keyframes pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+textarea{width:100%;min-height:110px;margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--text);
+  padding:14px;font:inherit;resize:vertical}
+textarea:focus{outline:2px solid var(--accent)}
+.err{background:color-mix(in srgb,var(--bad) 15%,transparent);border:1px solid var(--bad);color:var(--text);padding:12px 16px;border-radius:12px;margin-top:14px;animation:pop .3s}
+details summary{cursor:pointer;color:var(--muted);margin-top:18px}
+
+/* ---------- loading ---------- */
+.loader{text-align:center;padding:60px 0}
+.spin{width:90px;height:90px;margin:0 auto 26px;border-radius:50%;border:6px solid var(--track);border-top-color:var(--accent);border-right-color:var(--accent2);animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.lsteps{display:inline-flex;flex-direction:column;gap:10px;text-align:left}
+.lsteps div{color:var(--muted);opacity:.5;transition:all .4s;display:flex;gap:10px}
+.lsteps div.on{opacity:1;color:var(--text);transform:translateX(6px)}
+.lsteps div.done{opacity:.9;color:var(--good)}
+
+/* ---------- results ---------- */
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.tab{padding:9px 16px;border-radius:12px;background:var(--chip);border:1px solid var(--border);font-size:14px}
+.tab.active{background:linear-gradient(135deg,var(--accent),#5a8bff);color:#fff;border-color:transparent}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+.overview{display:flex;align-items:center;gap:30px;flex-wrap:wrap}
+.ring{position:relative;width:170px;height:170px}
+.ring svg{transform:rotate(-90deg)}
+.ring .num{position:absolute;inset:0;display:grid;place-items:center;font-size:46px;font-weight:800}
+.ring-fg{transition:stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)}
+.pill{display:inline-block;padding:4px 12px;border-radius:99px;font-size:13px;font-weight:700;color:#fff}
+.bar{margin:14px 0}
+.bar .top{display:flex;justify-content:space-between;font-weight:600}
+.bar .track{background:var(--track);border-radius:8px;height:10px;margin-top:6px;overflow:hidden}
+.bar .fill{height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 1.3s cubic-bezier(.2,.8,.2,1)}
+.bar .note{color:var(--muted);font-size:13px;margin-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{padding:5px 12px;border-radius:10px;background:var(--chip);border:1px solid var(--border);font-size:14px;animation:pop .45s both;animation-delay:calc(var(--i)*45ms)}
+.chip.good{background:color-mix(in srgb,var(--good) 18%,transparent);border-color:var(--good)}
+.chip.miss{border:1.5px dashed var(--bad);color:var(--bad);background:transparent}
+.chip.build{background:color-mix(in srgb,var(--accent2) 16%,transparent);border-color:var(--accent2)}
+.muted{color:var(--muted)}
+.role{padding:12px 0;border-bottom:1px solid var(--border)}
+.role:last-child{border:none}
+.role .rb{height:6px;background:var(--track);border-radius:4px;margin:8px 0;overflow:hidden}
+.role .rb i{display:block;height:100%;width:0;border-radius:4px;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.list div{padding:7px 0;border-bottom:1px solid var(--border)}
+.list div:last-child{border:none}
+.card h3{font-size:18px;margin-bottom:6px}
+.warnbox{border-color:var(--warn)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;font-size:14px}
+.fade-in{animation:up .6s both}
+footer{text-align:center;color:var(--muted);padding:40px 6vw 50px;border-top:1px solid var(--border)}
+.hide{display:none!important}
+
+@media(max-width:860px){
+  .hero{grid-template-columns:1fr;min-height:auto;padding-top:50px}
+  .steps,.grid2{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .links a.hl{display:none}
+  section{padding:60px 5vw}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}.reveal-word{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<nav>
+  <a class="logo" href="#home"><i>R</i> ResumeIQ</a>
+  <div class="links">
+    <a class="hl" href="#how">How it works</a>
+    <a class="hl" href="#analyze">Analyze</a>
+    <a class="hl" href="#limits">Limits</a>
+    <button class="toggle" id="themeBtn" aria-label="Toggle light and dark theme">🌙</button>
+  </div>
+</nav>
+
+<!-- ===== SCREEN 1: HOME ===== -->
+<section id="home">
+  <div class="hero">
+    <div>
+      <span class="badge">✨ Explainable 100-point rating · No sign-up</span>
+      <h1 id="headline">
+        <span class="reveal-word" style="animation-delay:.1s">Know</span>
+        <span class="reveal-word" style="animation-delay:.2s">your</span>
+        <span class="reveal-word grad" style="animation-delay:.3s">resume's</span>
+        <span class="reveal-word" style="animation-delay:.4s">score</span>
+        <span class="reveal-word" style="animation-delay:.5s">before</span>
+        <span class="reveal-word" style="animation-delay:.6s">recruiters</span>
+        <span class="reveal-word" style="animation-delay:.7s">do.</span>
+      </h1>
+      <p class="sub">Upload a PDF, Word file or even a phone photo. Get a clear score, see exactly where the points came from, and find the skills to build next.</p>
+      <div class="cta">
+        <a class="btn primary" href="#analyze">Check my resume →</a>
+        <a class="btn ghost" href="#how">See how it works</a>
+      </div>
+    </div>
+    <div class="mock">
+      <div class="card overview" style="justify-content:center">
+        <div class="ring" id="heroRing"></div>
+        <div>
+          <div class="muted" style="font-size:13px">Sample report</div>
+          <div style="font-size:22px;font-weight:800">Strong resume</div>
+          <div class="chips" style="margin-top:8px">
+            <span class="chip good">python</span><span class="chip good">nlp</span><span class="chip good">docker</span>
+          </div>
+        </div>
+      </div>
+      <div class="tag t1">🎯 Best fit: NLP Engineer</div>
+      <div class="tag t2">📈 3 skills to build</div>
+    </div>
+  </div>
+  <div class="stats rv">
+    <div class="stat"><b class="count" data-to="100">0</b><span>point rubric</span></div>
+    <div class="stat"><b class="count" data-to="7">0</b><span>scored categories</span></div>
+    <div class="stat"><b class="count" data-to="4">0</b><span>file types read</span></div>
+    <div class="stat"><b class="count" data-to="0">0</b><span>files stored</span></div>
+  </div>
+</section>
+
+<!-- ===== SCREEN 2: HOW IT WORKS ===== -->
+<section id="how">
+  <h2 class="rv">How it works</h2>
+  <p class="muted rv">Three steps, about ten seconds.</p>
+  <div class="steps">
+    <div class="card step rv"><div class="n">1</div><h3>Upload</h3><p>Drop your resume as PDF, DOCX, TXT or a clear photo. Add a job post if you want a match score too.</p></div>
+    <div class="card step rv" style="transition-delay:.12s"><div class="n">2</div><h3>We analyze</h3><p>Your skills, projects, education and certificates are read, and personal details are removed before scoring.</p></div>
+    <div class="card step rv" style="transition-delay:.24s"><div class="n">3</div><h3>Get your report</h3><p>See the score breakdown, matching job roles and the skills that would lift your rating most.</p></div>
+  </div>
+</section>
+
+<!-- ===== SCREEN 3: ANALYZE (upload → loading → results) ===== -->
+<section id="analyze">
+  <div id="uploadView">
+    <h2 class="rv">Analyze your resume</h2>
+    <p class="muted rv" style="margin-bottom:22px">Files are read in memory and never saved. Up to 5 files, 5 MB each.</p>
+    <div class="drop rv" id="drop" tabindex="0" role="button" aria-label="Choose resume files">
+      <span class="ico">📄</span>
+      <b style="font-size:19px">Drag &amp; drop your resume here</b><br>
+      <small>or click to browse · PDF, DOCX, TXT, JPG, PNG</small>
+      <input id="fileInput" type="file" multiple hidden accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.heic,.bmp">
+    </div>
+    <div class="files" id="fileList"></div>
+    <details>
+      <summary>Add a job description (optional)</summary>
+      <textarea id="jd" placeholder="Paste a job post here to also see a match score..."></textarea>
+    </details>
+    <div id="errBox"></div>
+    <div style="margin-top:24px"><button class="btn primary" id="goBtn" disabled>Analyze resume →</button></div>
+  </div>
+
+  <div id="loadingView" class="loader hide">
+    <div class="spin"></div>
+    <h2 style="margin-bottom:18px">Analyzing your resume…</h2>
+    <div class="lsteps" id="lsteps">
+      <div>📖 Reading your file</div>
+      <div>🔍 Finding skills and sections</div>
+      <div>🧮 Scoring the 100-point rubric</div>
+      <div>🎯 Matching job roles</div>
+    </div>
+  </div>
+
+  <div id="resultsView" class="hide">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+      <h2 style="margin:0">Your report</h2>
+      <button class="btn ghost" id="againBtn">← Analyze another</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="report"></div>
+    <div id="ranking"></div>
+  </div>
+</section>
+
+<section id="limits">
+  <h2 class="rv">Limits of this tool</h2>
+  <div class="card rv list" id="limitList" style="margin-top:14px"><span class="muted">Loading…</span></div>
+</section>
+
+<footer>Built by Sahil Kumar Verma · A score is a guide, not a hiring decision.</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const C = 339.292;
+const colorFor = n => n >= 70 ? 'var(--good)' : n >= 45 ? 'var(--warn)' : 'var(--bad)';
+
+/* ---------- theme ---------- */
+(function(){
+  let t = 'dark';
+  try { t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); } catch(e){}
+  setTheme(t);
+  $('#themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  function setTheme(v){
+    document.documentElement.dataset.theme = v;
+    $('#themeBtn').textContent = v === 'dark' ? '🌙' : '☀️';
+    try { localStorage.setItem('theme', v); } catch(e){}
+  }
+})();
+
+/* ---------- animation helpers ---------- */
+function countUp(el, to, dur = 1400){
+  const t0 = performance.now();
+  (function tick(now){
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(to * e);
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+function ringHTML(score, size = 170){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 130 130">
+    <circle cx="65" cy="65" r="54" fill="none" stroke="var(--track)" stroke-width="12"/>
+    <circle class="ring-fg" data-score="${score}" cx="65" cy="65" r="54" fill="none" stroke="${colorFor(score)}"
+      stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg>
+    <div class="num"><span class="count" data-to="${score}">0</span></div>`;
+}
+function animateIn(root){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    root.querySelectorAll('.ring-fg').forEach(r => r.style.strokeDashoffset = C * (1 - r.dataset.score / 100));
+    root.querySelectorAll('.fill').forEach(b => b.style.width = b.dataset.w + '%');
+    root.querySelectorAll('.rb i').forEach(b => b.style.width = b.dataset.w + '%');
+    root.querySelectorAll('.count').forEach(c => countUp(c, +c.dataset.to));
+  }));
+}
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting){
+    e.target.classList.add('in');
+    e.target.querySelectorAll?.('.count').forEach(c => countUp(c, +c.dataset.to));
+    io.unobserve(e.target);
+  }
+}), {threshold: .15});
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+
+/* hero sample ring */
+$('#heroRing').innerHTML = ringHTML(87);
+animateIn($('#heroRing'));
+
+/* ---------- limits list ---------- */
+fetch('/api/limits').then(r => r.json()).then(d => {
+  $('#limitList').innerHTML = d.limits.map(l => `<div>• ${esc(l)}</div>`).join('');
+}).catch(() => { $('#limitList').innerHTML = '<span class="muted">A score is a guide, not a hiring decision.</span>'; });
+
+/* ---------- upload ---------- */
+let files = [];
+const MAX_FILES = 5, MAX_BYTES = 5_000_000;
+const drop = $('#drop'), input = $('#fileInput');
+drop.onclick = () => input.click();
+drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+input.onchange = () => { addFiles(input.files); input.value = ''; };
+
+function showErr(msg){ $('#errBox').innerHTML = msg ? `<div class="err">${esc(msg)}</div>` : ''; }
+function addFiles(list){
+  showErr('');
+  for (const f of list){
+    if (files.length >= MAX_FILES){ showErr(`You can upload up to ${MAX_FILES} files.`); break; }
+    if (f.size > MAX_BYTES){ showErr(`${f.name} is bigger than 5 MB.`); continue; }
+    if (!files.some(x => x.name === f.name && x.size === f.size)) files.push(f);
+  }
+  renderFiles();
+}
+function renderFiles(){
+  $('#fileList').innerHTML = files.map((f, i) =>
+    `<div class="file">📎 ${esc(f.name)} <small class="muted">${(f.size/1024).toFixed(0)} KB</small>
+     <button data-i="${i}" aria-label="Remove ${esc(f.name)}">✕</button></div>`).join('');
+  $('#fileList').querySelectorAll('button').forEach(b => b.onclick = () => { files.splice(+b.dataset.i, 1); renderFiles(); });
+  $('#goBtn').disabled = files.length === 0;
+}
+
+/* ---------- views ---------- */
+function view(name){
+  ['upload','loading','results'].forEach(v => $('#' + v + 'View').classList.toggle('hide', v !== name));
+  $('#analyze').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+let stepTimer;
+function startSteps(){
+  const items = [...$('#lsteps').children]; let i = 0;
+  items.forEach(d => d.className = '');
+  const tick = () => {
+    items.forEach((d, k) => d.className = k < i ? 'done' : k === i ? 'on' : '');
+    if (i < items.length - 1) i++;
+  };
+  tick(); stepTimer = setInterval(tick, 1300);
+}
+
+$('#goBtn').onclick = async () => {
+  showErr(''); view('loading'); startSteps();
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f));
+  fd.append('jd', $('#jd').value || '');
+  try {
+    const res = await fetch('/api/analyze', {method: 'POST', body: fd});
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    clearInterval(stepTimer);
+    showResults(data.results);
+  } catch (e) {
+    clearInterval(stepTimer);
+    view('upload');
+    showErr('Something went wrong while analyzing. Please try again. (' + e.message + ')');
+  }
+};
+$('#againBtn').onclick = () => { files = []; renderFiles(); $('#jd').value = ''; view('upload'); };
+
+/* ---------- results ---------- */
+let RESULTS = [];
+function showResults(results){
+  RESULTS = results;
+  const ok = results.filter(r => r.rating);
+  if (!ok.length){
+    view('upload');
+    showErr(results.map(r => `${r.name}: ${r.error}`).join('  '));
+    return;
+  }
+  view('results');
+  $('#tabs').innerHTML = results.map((r, i) =>
+    `<button class="tab${i === 0 ? ' active' : ''}" data-i="${i}">${esc(r.name)}</button>`).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    $('#tabs').querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    renderReport(+t.dataset.i);
+  });
+  $('#tabs').classList.toggle('hide', results.length < 2);
+  renderReport(results.findIndex(r => r.rating));
+  renderRanking(ok);
+}
+const chips = (arr, cls = '') => arr && arr.length
+  ? arr.map((x, i) => `<span class="chip ${cls}" style="--i:${i}">${esc(x)}</span>`).join('')
+  : '<span class="muted">None</span>';
+
+function renderReport(i){
+  const item = RESULTS[i], root = $('#report');
+  if (!item.rating){ root.innerHTML = `<div class="card err">${esc(item.name)}: ${esc(item.error)}</div>`; return; }
+  const r = item.rating, jd = item.jd;
+  const tierColor = colorFor(r.score);
+  const bars = r.breakdown.map(([label, pts, mx, note]) => {
+    const p = Math.round(pts * 10) / 10;
+    return `<div class="bar"><div class="top"><span>${esc(label)}</span><span>${p} / ${mx}</span></div>
+      <div class="track"><div class="fill" data-w="${(100 * pts / mx).toFixed(0)}"></div></div>
+      <div class="note">${esc(note)}</div></div>`;
+  }).join('');
+  const roles = r.no_skills ? '<span class="muted">No tech skills were detected, so start with the basics below.</span>'
+    : r.roles.map(ro => {
+      const c = ro.score >= 65 ? 'var(--good)' : ro.score >= 35 ? 'var(--warn)' : '#8a93ad';
+      return `<div class="role"><b>${esc(ro.role)}</b> <span class="pill" style="background:${c}">${ro.score}% · ${esc(ro.label)}</span>
+        <div class="rb"><i data-w="${ro.score}" style="background:${c}"></i></div>
+        <div><span class="muted">You have:</span> ${esc((ro.have || []).join(', ') || '-')}</div>
+        <div><span style="color:var(--bad)">Build next:</span> ${esc((ro.need || []).join(', ') || 'nothing core, you are covered')}</div></div>`;
+    }).join('');
+  const certs = r.cert_where && r.cert_where.length
+    ? r.cert_where.map(([c, w]) => `<div>🎓 ${esc(c)} <small class="muted">(${esc(w)})</small></div>`).join('')
+    : '<span class="muted">No certification courses found</span>';
+  const e = r.edu || {}, x = r.exp || {};
+  const found = `<div><b>Degrees:</b> ${esc((e.degrees || []).join(', ') || '-')}</div>
+    <div><b>Institutions:</b> ${esc((e.institutions || []).join('; ') || '-')}</div>
+    <div><b>CGPA:</b> ${esc(e.cgpa || '-')}</div>
+    <div><b>Roles:</b> ${esc((x.roles || []).join('; ') || '-')}</div>
+    <div><b>Organizations:</b> ${esc((x.orgs || []).join(', ') || '-')}</div>
+    <div><b>Dates:</b> ${esc((x.dates || []).join(', ') || '-')}</div>`;
+  const tips = r.tips.length ? r.tips.map(t => `<div>💡 ${esc(t)}</div>`).join('') : 'Structure looks good.';
+  const warn = r.warnings.length
+    ? `<div class="card warnbox fade-in" style="margin-top:18px"><h3>Parsing warnings</h3>${r.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}</div>` : '';
+  const jdCard = jd ? `<div class="card fade-in" style="margin-top:18px"><h3>Match with your job description: ${jd.score}/100 (${esc(jd.verdict)})</h3>
+      <div class="muted" style="margin-top:6px">Matched skills</div><div class="chips">${chips(jd.matched, 'good')}</div>
+      <div class="muted" style="margin-top:12px">Missing skills</div><div class="chips">${chips(jd.missing, 'miss')}</div></div>` : '';
+
+  root.innerHTML = `
+    <div class="card overview fade-in">
+      <div class="ring">${ringHTML(r.score)}</div>
+      <div>
+        <div class="muted">${esc(item.name)}</div>
+        <div style="font-size:30px;font-weight:800;margin:4px 0">${esc(r.tier)} resume</div>
+        <span class="pill" style="background:${tierColor}">${r.score} / 100</span>
+        <div class="muted" style="margin-top:8px;font-size:14px">Rated on a transparent 100-point rubric. No job description needed.</div>
+      </div>
+    </div>
+    ${warn}
+    <div class="grid2">
+      <div class="card fade-in"><h3>How the score was built</h3>${bars}</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="card fade-in"><h3>Skills you proved in your work</h3><div class="chips">${chips(r.proved, 'good')}</div></div>
+        <div class="card fade-in"><h3>Skills only listed (count 20%)</h3><div class="chips">${chips(r.listed)}</div></div>
+        <div class="card fade-in"><h3>Skills to build next</h3><div class="chips">${chips(r.build, 'build')}</div></div>
+      </div>
+    </div>
+    ${jdCard}
+    <div class="grid2">
+      <div class="card fade-in"><h3>Jobs you can aim for</h3>${roles}</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="card fade-in list"><h3>Certifications and courses (10 points)</h3>${certs}</div>
+        <div class="card fade-in list"><h3>What was found in your resume</h3>${found}</div>
+      </div>
+    </div>
+    <div class="card fade-in list" style="margin-top:18px"><h3>Improvements</h3>${tips}</div>`;
+  animateIn(root);
+}
+
+function renderRanking(ok){
+  if (ok.length < 2){ $('#ranking').innerHTML = ''; return; }
+  const rows = [...ok].sort((a, b) => b.rating.score - a.rating.score).map((r, i) =>
+    `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td><b>${r.rating.score}</b></td><td>${esc(r.rating.tier)}</td><td>${esc(r.rating.roles[0].role)}</td></tr>`).join('');
+  $('#ranking').innerHTML = `<div class="card fade-in" style="margin-top:18px"><h3>Ranking of uploaded resumes</h3>
+    <table><tr><th>#</th><th>Resume</th><th>Score</th><th>Level</th><th>Best-fit role</th></tr>${rows}</table></div>`;
+}
+</script>
+</body>
+</html>
