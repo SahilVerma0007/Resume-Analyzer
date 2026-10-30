@@ -1,4 +1,5 @@
 """Web server: serves the website and runs the resume analyzer."""
+import time
 from pathlib import Path
 from typing import List
 
@@ -59,6 +60,7 @@ def analyze_resumes(files: List[UploadFile] = File(...), jd: str = Form("")):
         if kind == "doc":
             out.append({"name": name, "error": "Old .doc files are not supported. Save it as .docx or PDF and try again."})
             continue
+        t0 = time.perf_counter()
         try:
             text, method = analyzer.read_resume_file(name, data)
         except Exception:
@@ -67,7 +69,12 @@ def analyze_resumes(files: List[UploadFile] = File(...), jd: str = Form("")):
         if not analyzer.is_readable(text):
             out.append({"name": name, "error": "Could not read enough clear text. Try a PDF or DOCX, or a clear, straight photo."})
             continue
+        t1 = time.perf_counter()
         rating = analyzer.rate_resume(text, ocr=(method == "ocr"))
+        t2 = time.perf_counter()
         jd_res = analyzer.analyze(text, jd) if jd.strip() else None
+        t3 = time.perf_counter()
+        print(f"TIMING file={name} kind={kind} method={method} chars={len(text)} "
+              f"read={t1-t0:.2f}s rate={t2-t1:.2f}s jd={t3-t2:.2f}s total={t3-t0:.2f}s", flush=True)
         out.append({"name": name, "rating": clean(rating), "jd": clean(jd_res)})
     return JSONResponse({"results": out})

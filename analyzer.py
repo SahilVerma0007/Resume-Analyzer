@@ -9,19 +9,21 @@ CERT_POINTS_MAX = 10     # points (out of the 100-point rubric) for certificatio
 
 # ------------------------------------------------------------------------------
 import io, re, html
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import functools
 from pypdf import PdfReader
 
+import os
 try:
+    if os.environ.get("USE_SPACY", "1") == "0":
+        raise RuntimeError("spaCy switched off by USE_SPACY=0")
     import spacy
     try:
-        NLP = spacy.load("en_core_web_sm")
+        NLP = spacy.load("en_core_web_sm", disable=["tagger", "parser", "attribute_ruler", "lemmatizer"])
     except Exception:
         import importlib, subprocess, sys
         subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"], check=False)
         importlib.invalidate_caches()
-        NLP = spacy.load("en_core_web_sm")
+        NLP = spacy.load("en_core_web_sm", disable=["tagger", "parser", "attribute_ruler", "lemmatizer"])
 except Exception:
     NLP = None
 print("spaCy loaded:", NLP is not None)
@@ -107,19 +109,25 @@ def extract_education(text):
     return {"degrees": degrees[:4], "institutions": inst[:3], "cgpa": cgpa.group(1) if cgpa else None}
 
 def extract_experience(text):
+    return {k: (list(v) if isinstance(v, list) else v) for k, v in _extract_experience_cached(text)}
+
+@functools.lru_cache(maxsize=32)
+def _extract_experience_cached(text):
     role_re = re.compile(r"\b(" + "|".join(ROLE_WORDS) + r")\b", re.I)
     roles = [l.strip(" -•|:").strip() for l in text.splitlines()
              if role_re.search(l) and not l.strip().lower().startswith("skills")]
     years = [float(y) for y in re.findall(r"(\d+(?:\.\d+)?)\+?\s*years?", text, flags=re.I)]
     orgs, dates = [], []
     if NLP is not None:
-        doc = NLP(text[:20000])
+        doc = NLP(text[:6000])
         orgs = sorted({e.text.strip() for e in doc.ents if e.label_ == "ORG"})[:6]
         dates = sorted({e.text.strip() for e in doc.ents if e.label_ == "DATE"})[:6]
-    return {"roles": roles[:4], "years": max(years) if years else 0, "orgs": orgs, "dates": dates}
+    return tuple({"roles": roles[:4], "years": max(years) if years else 0, "orgs": orgs, "dates": dates}.items())
 
 # ---------------------------- 4. ML similarity --------------------------------
 def tfidf_similarity(resume, jd):
+    from sklearn.feature_extraction.text import TfidfVectorizer   # loaded only when a job description is used
+    from sklearn.metrics.pairwise import cosine_similarity
     m = TfidfVectorizer(stop_words="english", ngram_range=(1, 2)).fit_transform([resume, jd])
     return min(1.0, cosine_similarity(m[0:1], m[1:2])[0][0] / 0.5)
 
@@ -132,6 +140,7 @@ def embedding_similarity(resume, jd):
             from sentence_transformers import SentenceTransformer
             _EMB_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
         e = _EMB_MODEL.encode([resume[:3000], jd[:3000]])
+        from sklearn.metrics.pairwise import cosine_similarity
         raw = cosine_similarity(e[0:1], e[1:2])[0][0]
         return float(min(1.0, max(0.0, (raw - 0.2) / 0.6)))
     except Exception:
