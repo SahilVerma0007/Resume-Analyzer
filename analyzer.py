@@ -8,7 +8,8 @@ USE_EMBEDDINGS = False   # True = also use sentence embeddings (needs: !pip inst
 CERT_POINTS_MAX = 10     # points (out of the 100-point rubric) for certification courses.
 
 # ------------------------------------------------------------------------------
-import io, re, html
+import io, re, html, os
+os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # tesseract runs faster on small servers with one thread
 import functools
 from pypdf import PdfReader
 
@@ -637,7 +638,7 @@ def looks_garbled(text):
     return not is_readable(text)
 
 def _ocr_best(img):
-    """Try two page layouts and keep the better text."""
+    """Read with the normal page layout first. Only try the second layout if the first read is poor (saves time)."""
     import pytesseract
     best, best_score = "", -1
     for cfg in ("--psm 3", "--psm 6"):
@@ -648,17 +649,19 @@ def _ocr_best(img):
         sc = text_score(t)
         if sc > best_score:
             best, best_score = t, sc
+        if is_readable(best):                             # good enough, skip the slower second try
+            break
     return best
 
 def ocr_image(img):
     """Read text from a picture. Fixes phone rotation and sideways pictures."""
     from PIL import ImageOps
     img = ImageOps.exif_transpose(img).convert("L")       # fix phone rotation, make grayscale
-    if img.width > 3500:                                  # very large photos are slow
-        k = 3500 / img.width
+    if img.width > 2000:                                  # very large photos are slow
+        k = 2000 / img.width
         img = img.resize((int(img.width * k), int(img.height * k)))
-    elif img.width < 1500:                                # small pictures read badly, so enlarge
-        k = 1500 / img.width
+    elif img.width < 1000:                                # small pictures read badly, so enlarge
+        k = 1000 / img.width
         img = img.resize((int(img.width * k), int(img.height * k)))
     img = ImageOps.autocontrast(img)
     best = _ocr_best(img)
