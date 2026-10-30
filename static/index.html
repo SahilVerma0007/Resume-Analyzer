@@ -160,6 +160,22 @@ footer{text-align:center;color:var(--muted);padding:40px 6vw 50px;border-top:1px
   .links a.hl{display:none}
   section{padding:60px 5vw}
 }
+/* ---------- print / save as PDF ---------- */
+@media print{
+  @page{margin:12mm}
+  html[data-theme]{--bg:#fff;--bg2:#fff;--card:#fff;--card-solid:#fff;--border:#d5dbea;--text:#14213d;--muted:#5b678a;--track:#e3e8f6;--chip:#eef1fb;--shadow:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;animation:none!important;transition:none!important}
+  body{background:#fff;color:#14213d}
+  .bg,nav,#home,#how,#limits,footer,#uploadView,#loadingView,#againBtn,#printBtn,.tabs,.toggle{display:none!important}
+  section{padding:0;max-width:none}
+  #resultsView{zoom:.8}
+  .card{padding:16px 18px}
+  .card{box-shadow:none;backdrop-filter:none;break-inside:avoid;background:#fff}
+  .grid2{grid-template-columns:1fr 1fr}
+  .rv,.fade-in,.chip,.file{opacity:1!important;transform:none!important}
+  .print-head{display:block!important}
+}
+.print-head{display:none;margin-bottom:14px;color:var(--muted);font-size:13px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}.reveal-word{opacity:1;transform:none}}
 </style>
 </head>
@@ -264,9 +280,13 @@ footer{text-align:center;color:var(--muted);padding:40px 6vw 50px;border-top:1px
   <div id="resultsView" class="hide">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
       <h2 style="margin:0">Your report</h2>
-      <button class="btn ghost" id="againBtn">← Analyze another</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" id="printBtn">⬇ Download report (PDF)</button>
+        <button class="btn ghost" id="againBtn">← Analyze another</button>
+      </div>
     </div>
     <div class="tabs" id="tabs"></div>
+    <div class="print-head" id="printHead"></div>
     <div id="report"></div>
     <div id="ranking"></div>
   </div>
@@ -405,7 +425,15 @@ $('#goBtn').onclick = async () => {
 $('#againBtn').onclick = () => { files = []; renderFiles(); $('#jd').value = ''; view('upload'); };
 
 /* ---------- results ---------- */
-let RESULTS = [];
+let RESULTS = [], CURRENT = 0;
+$('#printBtn').onclick = () => {
+  const item = RESULTS[CURRENT];
+  const old = document.title;
+  $('#printHead').textContent = 'ResumeIQ report for ' + (item ? item.name : 'resume') + ' - ' + new Date().toLocaleDateString();
+  document.title = 'Resume report - ' + (item ? item.name.replace(/\.[^.]+$/, '') : 'resume');
+  window.print();
+  setTimeout(() => { document.title = old; }, 1000);
+};
 function showResults(results){
   RESULTS = results;
   const ok = results.filter(r => r.rating);
@@ -430,6 +458,7 @@ const chips = (arr, cls = '') => arr && arr.length
   : '<span class="muted">None</span>';
 
 function renderReport(i){
+  CURRENT = i;
   const item = RESULTS[i], root = $('#report');
   if (!item.rating){ root.innerHTML = `<div class="card err">${esc(item.name)}: ${esc(item.error)}</div>`; return; }
   const r = item.rating, jd = item.jd;
