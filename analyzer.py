@@ -196,6 +196,30 @@ ROLES = {
     "Frontend Developer": {
         "core": ["html", "css", "javascript", "react", "git"],
         "bonus": ["rest api", "sql"]},
+    "Deep Learning Engineer": {
+        "core": ["python", "deep learning", "neural networks", "tensorflow", "keras"],
+        "bonus": ["pytorch", "cnn", "lstm", "numpy", "opencv", "git"]},
+    "AI Application Engineer": {
+        "core": ["python", "transformers", "hugging face", "rest api"],
+        "bonus": ["fastapi", "streamlit", "nlp", "docker", "git"]},
+    "Data Engineer": {
+        "core": ["python", "sql", "linux", "git"],
+        "bonus": ["postgresql", "mysql", "mongodb", "docker", "aws", "azure", "gcp", "pandas"]},
+    "Cloud / DevOps Engineer": {
+        "core": ["linux", "git", "docker", "aws"],
+        "bonus": ["azure", "gcp", "github", "python", "rest api", "mlops"]},
+    "Business Intelligence Analyst": {
+        "core": ["sql", "excel", "power bi", "tableau", "data visualization"],
+        "bonus": ["statistics", "python", "mysql", "data analysis"]},
+    "Database Developer": {
+        "core": ["sql", "mysql", "postgresql", "mongodb"],
+        "bonus": ["linux", "git", "python", "aws"]},
+    "Software Engineer (Java / C++)": {
+        "core": ["java", "c++", "sql", "git"],
+        "bonus": ["linux", "mysql", "postgresql", "rest api", "github"]},
+    "Python Web Developer": {
+        "core": ["python", "flask", "html", "css", "git"],
+        "bonus": ["django", "fastapi", "javascript", "mysql", "postgresql", "rest api"]},
 }
 
 def suggest_roles(resume_skills, top_n=4, credit=None):
